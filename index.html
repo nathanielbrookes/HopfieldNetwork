@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script>
+            class HopfieldNetwork {
+                numberOfNodes;
+                nodeValues = [];
+                weightMatrix = [];
+                
+                constructor(N) {
+                    this.numberOfNodes = N;
+                    
+                    // Initialises the network
+                    this.Reset();
+                }
+
+                Reset() {
+                    // Set empty node values
+                    for (var i = 0; i < this.numberOfNodes; i++) {
+                        this.nodeValues[i] = 0;
+                    }
+                    
+                    // Set empty weight matrix
+                    for (var i = 0; i < this.numberOfNodes; i++) {
+                        var row = [];
+                        for (var j = 0; j < this.numberOfNodes; j++) {
+                            row.push(0);
+                        }
+                        this.weightMatrix[i] = row;
+                    }
+                }
+
+                TrainPatterns(patterns) {
+                    var summedMatrix = [];
+
+                    for (var n = 0; n < patterns.length; n++) {
+                        var pattern = patterns[n];
+                        var matrix = [];
+
+                        for (var i = 0; i < pattern.length; i++) {
+                            var row = [];
+                            for (var j = 0; j < pattern.length; j++) {
+                                if (i == j) {
+                                    // No connections from a node to itself
+                                    row.push(0);
+                                }
+                                else if (n == 0) {
+                                    // Push result
+                                    row.push(pattern[i]*pattern[j]);
+                                }
+                                else {
+                                    // Push result added to the previous pattern matrix
+                                    row.push(summedMatrix[i][j] + pattern[i]*pattern[j]);
+                                }
+                            }
+                            matrix.push(row);
+
+                            summedMatrix[i] = row;
+                        }
+                    }
+
+                    this.weightMatrix = summedMatrix;
+                }
+
+                SetNodeValues(values) {
+                    this.nodeValues = values;
+                }
+
+                Simulate() {
+                    var changedFlag = true;
+
+                    while (changedFlag == true) {
+                        changedFlag = false;
+
+                        // Generate random order for updating
+                        var remaining = [];
+                        var order = [];
+
+                        for (var i = 0; i < this.numberOfNodes; i++) {
+                            remaining.push(i);
+                        }
+
+                        while (remaining.length > 0) {
+                            var index = Math.floor(Math.random()*remaining.length);
+                            var node = remaining[index]; 
+
+                            remaining.splice(index, 1);
+                            order.push(node);
+                        }
+
+                        // Loop through nodes in the random order to calculate new activation values
+                        for (var i = 0; i < order.length; i++) {
+                            var calculatedValue = 0;
+                            var nodeIndex = order[i];
+                            var weightedSumOfInputs = 0;
+
+                            for (var j = 0; j < this.numberOfNodes; j++) {
+                                for (var k = 0; k < this.numberOfNodes; k++) {
+                                    if (j == nodeIndex) {
+                                        weightedSumOfInputs += this.weightMatrix[k][j] * this.nodeValues[k];
+                                    }
+                                }
+                            }
+
+                            // Apply signum activation function
+                            if (weightedSumOfInputs > 0) {
+                                calculatedValue = 1;
+                            }
+                            else if (weightedSumOfInputs < 0) {
+                                calculatedValue = -1;
+                            }
+
+                            // Update flag if the value has changed
+                            if (calculatedValue !== this.nodeValues[nodeIndex]) {
+                                changedFlag = true;
+
+                                // Update node's activation
+                                this.nodeValues[nodeIndex] = calculatedValue;
+                            }
+                        }
+
+                        console.log(this.nodeValues);
+                    }
+                }
+            }
+
+            window.onload = function() {
+                var myNetwork = new HopfieldNetwork(3);
+                
+                myNetwork.TrainPatterns([
+                    [1, 1, -1],
+                    [-1, -1, 1]
+                ]);
+
+                myNetwork.SetNodeValues([1, 1, 1]);
+
+                myNetwork.Simulate();
+
+                
+                console.log(myNetwork);
+            }
+        </script>
+    </head>
+    <body>
+        <canvas id="main"></canvas>
+    </body>
+</html>
