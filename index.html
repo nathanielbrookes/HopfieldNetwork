@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+            }
+        </style>
         <script>
             class HopfieldNetwork {
                 numberOfNodes;
@@ -66,78 +72,241 @@
                     this.nodeValues = values;
                 }
 
+                GetNodeValues() {
+                    return this.nodeValues;
+                }
+
                 Simulate() {
-                    var changedFlag = true;
+                    var changedFlag = false;
 
-                    while (changedFlag == true) {
-                        changedFlag = false;
+                    // Generate random order for updating
+                    var remaining = [];
+                    var order = [];
 
-                        // Generate random order for updating
-                        var remaining = [];
-                        var order = [];
+                    for (var i = 0; i < this.numberOfNodes; i++) {
+                        remaining.push(i);
+                    }
 
-                        for (var i = 0; i < this.numberOfNodes; i++) {
-                            remaining.push(i);
-                        }
+                    while (remaining.length > 0) {
+                        var index = Math.floor(Math.random()*remaining.length);
+                        var node = remaining[index]; 
 
-                        while (remaining.length > 0) {
-                            var index = Math.floor(Math.random()*remaining.length);
-                            var node = remaining[index]; 
+                        remaining.splice(index, 1);
+                        order.push(node);
+                    }
 
-                            remaining.splice(index, 1);
-                            order.push(node);
-                        }
+                    // Loop through nodes in the random order to calculate new activation values
+                    for (var i = 0; i < order.length; i++) {
+                        var calculatedValue = 0;
+                        var nodeIndex = order[i];
+                        var weightedSumOfInputs = 0;
 
-                        // Loop through nodes in the random order to calculate new activation values
-                        for (var i = 0; i < order.length; i++) {
-                            var calculatedValue = 0;
-                            var nodeIndex = order[i];
-                            var weightedSumOfInputs = 0;
-
-                            for (var j = 0; j < this.numberOfNodes; j++) {
-                                for (var k = 0; k < this.numberOfNodes; k++) {
-                                    if (j == nodeIndex) {
-                                        weightedSumOfInputs += this.weightMatrix[k][j] * this.nodeValues[k];
-                                    }
+                        for (var j = 0; j < this.numberOfNodes; j++) {
+                            for (var k = 0; k < this.numberOfNodes; k++) {
+                                if (j == nodeIndex) {
+                                    weightedSumOfInputs += this.weightMatrix[k][j] * this.nodeValues[k];
                                 }
                             }
-
-                            // Apply signum activation function
-                            if (weightedSumOfInputs > 0) {
-                                calculatedValue = 1;
-                            }
-                            else if (weightedSumOfInputs < 0) {
-                                calculatedValue = -1;
-                            }
-
-                            // Update flag if the value has changed
-                            if (calculatedValue !== this.nodeValues[nodeIndex]) {
-                                changedFlag = true;
-
-                                // Update node's activation
-                                this.nodeValues[nodeIndex] = calculatedValue;
-                            }
                         }
 
-                        console.log(this.nodeValues);
+                        // Apply signum activation function
+                        if (weightedSumOfInputs > 0) {
+                            calculatedValue = 1;
+                        }
+                        else if (weightedSumOfInputs < 0) {
+                            calculatedValue = -1;
+                        }
+
+                        // Update flag if the value has changed
+                        if (calculatedValue !== this.nodeValues[nodeIndex]) {
+                            changedFlag = true;
+
+                            // Update node's activation
+                            this.nodeValues[nodeIndex] = calculatedValue;
+                        }
                     }
+
+                    return changedFlag;
                 }
             }
 
+            class PatternGrid {
+                values = [];
+                
+                constructor(length) {
+                    for (var i = 0; i < length; i++) {
+                        this.values.push(0);
+                    }
+                }
+
+                SetValues(values) {
+                    this.values = values;
+                }
+
+                SetRandom(probability) {
+                    if (probability === undefined) {
+                        probability = 0.5
+                    }
+                    
+                    for (var i = 0; i < this.values.length; i++) {
+                        if (Math.random() < probability) {
+                            this.values[i] = -1;
+                        }
+                        else {
+                            this.values[i] = 1;
+                        }
+                    }
+                }
+
+                SetRandomPattern() {
+                    if (Math.floor(Math.random()*2) == 0) {
+                        this.values = [-1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, 1, -1];        
+                    }
+                    else {
+                        this.values = [1, 1, 1, 1, 1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, 1, -1, -1, -1, 1, 1, -1, -1, 1];
+                    }
+                }
+
+                Draw(ctx, width, height, size) {
+                    // Draw pattern grid values
+                    for (var i = 0; i < this.values.length; i++) {
+                        var x = i % width;
+                        var y = Math.floor(i/width);
+
+                        if (this.values[i] < 0) {
+                            ctx.fillStyle = '#000';
+                        }
+                        else {
+                            ctx.fillStyle = '#FFF';
+                        }
+
+                        ctx.fillRect(x*size, y*size, size, size);
+                    }
+
+                    // Draw pattern grid lines
+                    for (var x = 0; x <= width; x++) {
+                        ctx.beginPath();
+                        ctx.moveTo(x*size, 0);
+                        ctx.lineTo(x*size, height*size);
+                        ctx.stroke();
+                        ctx.closePath();
+                    }
+                    for (var y = 0; y <= height; y++) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, y*size);
+                        ctx.lineTo(width*size, y*size);
+                        ctx.closePath();
+                        ctx.stroke();  
+                    }
+                }
+
+                GetValues() {
+                    return this.values;
+                }
+            }
+            
+            class Simulation {
+                canvas; 
+                ctx;
+                settings;
+                patterns = [];
+                output;
+                
+                constructor(settings, canvas) {
+                    this.settings = settings;
+                    this.ctx = canvas.getContext("2d");
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeStyle = "#555";
+                    this.ctx.fillStyle = "#000";
+
+                    // Construct pattern grid
+                    for (var i = 0; i < this.settings.numberOfPatterns; i++) {
+                        var p = new PatternGrid(this.settings.dimensions[0]*this.settings.dimensions[1]);
+                        p.SetRandom(0.1);
+                        this.patterns.push(p);
+                    }
+
+                    // Construct output grid
+                    this.output = new PatternGrid(this.settings.dimensions[0]*this.settings.dimensions[1]);
+                    this.output.SetRandom(0.6);
+                }
+
+                Draw() {
+                    this.ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                    
+                    this.ctx.font = "22px Arial";
+                    this.ctx.textAlign = "center";
+                    
+                    var margin = 20;
+                    var size = 15;
+
+                    this.ctx.save();
+                    this.ctx.translate(margin, margin);
+
+                    // Draw pattern grids
+                    for (var i = 0; i < this.patterns.length; i++) {
+                        this.ctx.fillStyle = '#000';
+                        this.ctx.fillText("Training Pattern " + (i+1), (this.settings.dimensions[0]*size+2*margin)/2, 25);
+                        this.ctx.translate(margin, 2*margin);
+                        this.patterns[i].Draw(this.ctx, this.settings.dimensions[0], this.settings.dimensions[1], size);
+                        this.ctx.translate(-margin, -2*margin);
+                        this.ctx.translate(2*margin+this.settings.dimensions[0]*size, 0);
+                    }
+
+                    this.ctx.restore();
+
+                    this.ctx.translate(margin, 4*margin+this.settings.dimensions[1]*size);
+
+                    // Draw output grid
+                    this.ctx.fillStyle = '#000';
+                    this.ctx.fillText("Output Pattern", (this.settings.dimensions[0]*size+2*margin)/2, 25);
+                    this.ctx.translate(margin, 2*margin);
+                    this.output.Draw(this.ctx, this.settings.dimensions[0], this.settings.dimensions[1], size);
+                    this.ctx.translate(-margin, -2*margin);
+
+                    this.ctx.translate(-margin, -(4*margin+this.settings.dimensions[1]*size));
+                }
+
+                TrainPatternsOnNetwork(network) {
+                    var patterns = [];
+                    for (var i = 0; i < this.patterns.length; i++) {
+                        patterns.push(this.patterns[i].GetValues());
+                    }
+                    network.TrainPatterns(patterns);
+                }
+            }
+            
             window.onload = function() {
-                var myNetwork = new HopfieldNetwork(3);
+                var canvas = document.getElementById("main");
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
                 
-                myNetwork.TrainPatterns([
-                    [1, 1, -1],
-                    [-1, -1, 1]
-                ]);
+                var mySimulation = new Simulation({
+                    numberOfPatterns: 3,
+                    dimensions: [15, 15]
+                }, canvas);
 
-                myNetwork.SetNodeValues([1, 1, 1]);
+                var myNetwork = new HopfieldNetwork(225);
 
-                myNetwork.Simulate();
+                // Train network on patterns
+                mySimulation.TrainPatternsOnNetwork(myNetwork);
+
+                // Set Values of Network
+                myNetwork.SetNodeValues(mySimulation.output.GetValues()); 
+                mySimulation.Draw();
+
+                // Simulate
+                setInterval(function() {
+                    var resultInProgress = myNetwork.Simulate();
+
+                    if (resultInProgress) {
+                        mySimulation.output.SetValues(myNetwork.GetNodeValues());
+                        console.log(myNetwork.GetNodeValues());
+                        mySimulation.Draw();  
+                    }
+                }, 1000);
 
                 
-                console.log(myNetwork);
             }
         </script>
     </head>
